@@ -6,17 +6,12 @@ import router from "../routers/route.js";
 
 const app = fastify()
 
-
-
-app.register(router, {prefix:"api"})
-
+app.register(fastifyCookie)
 app.register(cors, {
-    origin:"*",
+    origin:"http://localhost:3000",
     credentials:true
 })
-
-app.register(fastifyCookie)
-
+app.register(router, {prefix:"api"})
 
 
 const start = async ()=>{

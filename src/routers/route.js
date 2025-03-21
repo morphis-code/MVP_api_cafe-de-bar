@@ -12,13 +12,13 @@ export default async function router(app, options){
         const user = await instance.findOne({email:email})
 
         if(!user){
-            res.status(400).send({message:"Usuário não encontrado"})
+           return res.status(400).send({message:"Usuário não encontrado"})
         }
 
         const passwordMatch = bcrypt.compareSync(password, user.password)
 
         if(!passwordMatch){
-            res.status(400).send({message:"Senha ou email invalido"})
+            return res.status(400).send({message:"Senha ou email invalido"})
         }
 
         const secretJwt = new TextEncoder().encode(process.env.SECRET_KEY_JWT)
@@ -28,11 +28,10 @@ export default async function router(app, options){
         .setExpirationTime("1h")
         .sign(secretJwt)
 
-        res.setCookie("token", token, {
+        res.cookie("token", token, {
             httpOnly: true,
             path:"/",
             maxAge:3600,
-            secure:true,
             sameSite:"Lax"
         })
 
