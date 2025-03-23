@@ -1,10 +1,47 @@
 import {jwtVerify, SignJWT} from "jose"
 import bcrypt from "bcryptjs"
 import { manipulationMongoDb } from "../db/mongodb.js"
+import { authMiddleware } from "../middlewares/authMiddleware.js"
+import { roleMiddleware } from "../middlewares/roleMiddleware.js"
 
 export default async function router(app, options){
     
-    app.post("/login", async(req, res)=>{
+    app.post("/register", async(req, res)=>{
+        const {name, email, sex, password, role} = req.body
+
+        if(!name || !email || !sex || !password || !role){
+            res.status(409).send({message:"Todos os campos precisam ser preenchidos"}) 
+        }
+
+        const cryptPassword = bcrypt.hashSync(password, 10)
+
+        const instance = manipulationMongoDb("teste","users")
+
+        await instance.insertOne({name, email, sex, password:cryptPassword, role})
+
+        const id = await instance.findOne({email:email})
+
+        const secretJwt = new TextEncoder().encode(process.env.SECRET_KEY_JWT)
+        const token = await new SignJWT({email, id:id._id.toString(), role})
+        .setProtectedHeader({alg:"HS256"})
+        .setIssuedAt()
+        .setExpirationTime("1h")
+        .sign(secretJwt)
+
+        res.setCookie("token", token, {
+            httpOnly: true,
+            path:"/",
+            maxAge:3600,
+            secure:true,
+            sameSite:"Lax"
+        })
+
+        res.status(200).send({message:"Usuário criado!!", token})
+
+
+    })
+
+    app.post("/login",{preHandler: authMiddleware}, async(req, res)=>{
         const {email, password} = req.body
 
         const instance = manipulationMongoDb("teste","users")
@@ -22,7 +59,7 @@ export default async function router(app, options){
         }
 
         const secretJwt = new TextEncoder().encode(process.env.SECRET_KEY_JWT)
-        const token = await new SignJWT({email, id:user._id.toString()})
+        const token = await new SignJWT({email, id:user._id.toString(), role:user.role})
         .setProtectedHeader({alg:"HS256"})
         .setIssuedAt()
         .setExpirationTime("1h")
@@ -36,42 +73,6 @@ export default async function router(app, options){
         })
 
         res.status(200).send({message:"Logado com sucesso", token})
-
-    })
-
-
-    app.post("/register", async(req, res)=>{
-        const {name, email, sex, password} = req.body
-
-        if(!name || !email || !sex || !password){
-            res.status(409).send({message:"Todos os campos precisam ser preenchidos"}) 
-        }
-
-        const cryptPassword = bcrypt.hashSync(password, 10)
-
-        const instance = manipulationMongoDb("teste","users")
-
-        await instance.insertOne({name, email, sex, password:cryptPassword})
-
-        const id = await instance.findOne({email:email})
-
-        const secretJwt = new TextEncoder().encode(process.env.SECRET_KEY_JWT)
-        const token = await new SignJWT({email, id:id._id.toString()})
-        .setProtectedHeader({alg:"HS256"})
-        .setIssuedAt()
-        .setExpirationTime("1h")
-        .sign(secretJwt)
-
-        res.setCookie("token", token, {
-            httpOnly: true,
-            path:"/",
-            maxAge:3600,
-            secure:true,
-            sameSite:"Lax"
-        })
-
-        res.status(200).send({message:"Usuário criado!!", token})
-
 
     })
 }
